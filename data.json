@@ -1,0 +1,169 @@
+[
+    {
+        "type": "Savings",
+        "name": "Hypot\u00e9ka",
+        "image_name": "house",
+        "current_amount": 10660.0,
+        "transactions": [
+            {
+                "amount": 8650.0,
+                "type": "Income",
+                "current_amount": 8650.0,
+                "date": "2026-02-10T17:45:35.779304",
+                "note": "\u0160tart"
+            },
+            {
+                "amount": 720.0,
+                "type": "Expense",
+                "current_amount": 7930.0,
+                "date": "2026-02-10T17:46:02.395719",
+                "note": "P\u00fa\u0165"
+            },
+            {
+                "amount": 830.0,
+                "type": "Income",
+                "current_amount": 8760.0,
+                "date": "2026-02-10T17:46:12.379999",
+                "note": "Hypot\u00e9ka"
+            },
+            {
+                "amount": 1600.0,
+                "type": "Income",
+                "current_amount": 10360.0,
+                "date": "2026-02-10T17:46:24.755976",
+                "note": "Hypot\u00e9ka"
+            },
+            {
+                "amount": 200.0,
+                "type": "Income",
+                "current_amount": 10560.0,
+                "date": "2026-02-10T17:46:37.635979",
+                "note": "Hypot\u00e9ka"
+            },
+            {
+                "amount": 100.0,
+                "type": "Income",
+                "current_amount": 10660.0,
+                "date": "2026-02-10T17:46:49.555484",
+                "note": "Odlo\u017een\u00e9 zo spotreby"
+            }
+        ],
+        "target_amount": 25000.0
+    },
+    {
+        "type": "Savings",
+        "name": "Svadba",
+        "image_name": "wedding",
+        "current_amount": 1200.0,
+        "transactions": [
+            {
+                "amount": 900.0,
+                "type": "Income",
+                "current_amount": 900.0,
+                "date": "2026-02-10T17:47:59.531572",
+                "note": "\u0160tart"
+            },
+            {
+                "amount": 300.0,
+                "type": "Income",
+                "current_amount": 1200.0,
+                "date": "2026-02-10T17:48:14.899976",
+                "note": "December"
+            }
+        ],
+        "target_amount": 6000.0
+    },
+    {
+        "type": "Savings",
+        "name": "Prste\u0148",
+        "image_name": "ring",
+        "current_amount": 900.0,
+        "transactions": [
+            {
+                "amount": 80.0,
+                "type": "Income",
+                "current_amount": 80.0,
+                "date": "2026-02-10T17:48:54.787835",
+                "note": "No note"
+            },
+            {
+                "amount": 30.0,
+                "type": "Income",
+                "current_amount": 110.0,
+                "date": "2026-02-10T17:48:59.731458",
+                "note": "No note"
+            },
+            {
+                "amount": 20.0,
+                "type": "Income",
+                "current_amount": 130.0,
+                "date": "2026-02-10T17:49:03.187925",
+                "note": "No note"
+            },
+            {
+                "amount": 35.0,
+                "type": "Income",
+                "current_amount": 165.0,
+                "date": "2026-02-10T17:49:09.186906",
+                "note": "No note"
+            },
+            {
+                "amount": 20.0,
+                "type": "Income",
+                "current_amount": 185.0,
+                "date": "2026-02-10T17:49:13.827369",
+                "note": "No note"
+            },
+            {
+                "amount": 30.0,
+                "type": "Income",
+                "current_amount": 215.0,
+                "date": "2026-02-10T17:49:18.044826",
+                "note": "No note"
+            },
+            {
+                "amount": 50.0,
+                "type": "Income",
+                "current_amount": 265.0,
+                "date": "2026-02-10T17:49:21.411671",
+                "note": "No note"
+            },
+            {
+                "amount": 150.0,
+                "type": "Income",
+                "current_amount": 415.0,
+                "date": "2026-02-10T17:49:28.115109",
+                "note": "No note"
+            },
+            {
+                "amount": 50.0,
+                "type": "Income",
+                "current_amount": 465.0,
+                "date": "2026-02-10T17:49:32.875917",
+                "note": "No note"
+            },
+            {
+                "amount": 20.0,
+                "type": "Income",
+                "current_amount": 485.0,
+                "date": "2026-02-10T17:49:36.235743",
+                "note": "No note"
+            },
+            {
+                "amount": 50.0,
+                "type": "Income",
+                "current_amount": 535.0,
+                "date": "2026-02-10T17:49:40.092439",
+                "note": "No note"
+            },
+            {
+                "amount": 365.0,
+                "type": "Income",
+                "current_amount": 900.0,
+                "date": "2026-02-10T17:49:53.075539",
+                "note": "Zo \u0161tipendia"
+            }
+        ],
+        "target_amount": 900.0
+    }
+]
