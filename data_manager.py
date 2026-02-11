@@ -13,7 +13,6 @@ def save_data(financial_components):
 def load_data():
     if not os.path.exists(FILE_NAME):
         return []
-
     try:
         with open(FILE_NAME, "r", encoding="utf-8") as f:
             content = f.read().strip()

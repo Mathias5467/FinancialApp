@@ -4,30 +4,30 @@ from functional_components import *
 
 
 class Bar:
-    def __init__(self, root, maximize_window, minimize_window, start_move, do_move, title="Cash Flow", icon_path="icons/logo.png"):
+    def __init__(self, root, fg_color, font_color, maximize_window, minimize_window, start_move, do_move, title="Cash Flow", icon_path="icons/logo.png"):
         self.root = root
 
-        # OPRAVA: Použitie ctk.CTkImage namiesto ImageTk.PhotoImage
+    
         icon_img = Image.open(icon_path)
         self.icon_photo = ctk.CTkImage(light_image=icon_img, dark_image=icon_img, size=(24, 24))
 
-        self.title_bar = ctk.CTkFrame(root, height=50, fg_color="#1f1f1f")
-        self.title_bar.grid(row=0, column=0, sticky="ew") # Použijeme grid
+        self.title_bar = ctk.CTkFrame(root, height=50, fg_color=fg_color, corner_radius=0)
+        self.title_bar.grid(row=0, column=0, sticky="ew")
 
         self.icon_label = ctk.CTkLabel(self.title_bar, image=self.icon_photo, text="")
         self.icon_label.pack(side="left", padx=5)
 
-        title_label = ctk.CTkLabel(self.title_bar, text=title, text_color="#72bd39", font=("Courier New", 16, "bold"))
+        title_label = ctk.CTkLabel(self.title_bar, text=title, text_color=font_color, font=("Courier New", 16, "bold"))
         title_label.pack(side="left")
 
         # Tlačidlá
-        self.close_button = ctk.CTkButton(self.title_bar, text="✕", width=30, command=root.destroy, fg_color="#1f1f1f", hover_color="#2d2d2d", text_color="#72bd39")
+        self.close_button = ctk.CTkButton(self.title_bar, text="✕", font=("Arial", 14, "bold"), width=30, command=root.destroy, fg_color=fg_color, hover_color=fg_color, text_color=font_color)
         self.close_button.pack(side="right", padx=5, pady=5)
 
-        self.max_button = ctk.CTkButton(self.title_bar, text="☐", width=30, command=maximize_window, fg_color="#1f1f1f", hover_color="#2d2d2d", text_color="#72bd39")
+        self.max_button = ctk.CTkButton(self.title_bar, text="☐", font=("Arial", 14, "bold"), width=30, command=maximize_window, fg_color=fg_color, hover_color=fg_color, text_color=font_color)
         self.max_button.pack(side="right", pady=5)
 
-        self.min_button = ctk.CTkButton(self.title_bar, text="─", width=30, command=minimize_window, fg_color="#1f1f1f", hover_color="#2d2d2d", text_color="#72bd39")
+        self.min_button = ctk.CTkButton(self.title_bar, text="─", font=("Arial", 14, "bold"), width=30, command=minimize_window, fg_color=fg_color, hover_color=fg_color, text_color=font_color)
         self.min_button.pack(side="right", padx=5, pady=5)
 
         # Bindings
@@ -37,32 +37,42 @@ class Bar:
         title_label.bind("<B1-Motion>", do_move)
 
 class ActionBar(ctk.CTkFrame):
-    def __init__(self, parent, on_add_callback):
+    def __init__(self, parent, on_add_callback, on_color_select_callback, bg_color, fg_color, font_color):
         super().__init__(parent, fg_color="transparent", height=50)
         self.on_add_callback = on_add_callback
-
+        self.on_color_select_callback = on_color_select_callback
         self.add_button = ctk.CTkButton(
-            self, text="+", width=40, height=40,
-            font=("Courier New", 24, "bold"),
-            fg_color="#1f1f1f", text_color="#72bd39",
-            hover_color="#2b2b2b", border_color="#72bd39",
-            border_width=1, corner_radius=8,
+            self, text="Add new ►", height=30, width=30,
+            font=("Courier New", 15, "normal"),
+            fg_color=bg_color, text_color=font_color,
+            hover_color=fg_color, border_color=fg_color,
+            border_width=2, corner_radius=8,
             command=self.on_add_callback
         )
-        self.add_button.pack(side="right", padx=30)
+        self.add_button.pack(side="left")
+
+        self.color_theme_button = ctk.CTkButton(
+            self, text="Select Theme", height=30, width=30,
+            font=("Courier New", 15, "normal"),
+            fg_color=bg_color, text_color=font_color,
+            hover_color=fg_color, border_color=fg_color,
+            border_width=2, corner_radius=8,
+            command=self.on_color_select_callback
+        )
+        self.color_theme_button.pack(side="left", padx=10)
 
 class ScrollableFrame(ctk.CTkScrollableFrame):
-    def __init__(self, root, width, height):
-        super().__init__(root, width=width, height=height)
+    def __init__(self, root, width, height, color):
+        super().__init__(root, width=width, height=height, fg_color=color)
 
 class AddEntityFrame(ctk.CTkFrame):
-    def __init__(self, parent, on_save_callback, on_cancel_callback):
+    def __init__(self, parent, on_save_callback, on_cancel_callback, bg1, bg2, font_color):
         super().__init__(parent, fg_color="transparent")
         self.on_save_callback = on_save_callback
         self.on_cancel_callback = on_cancel_callback
 
         self.container = ctk.CTkFrame(self, fg_color="transparent")
-        self.container.pack(pady=20, padx=40, fill="x")
+        self.container.pack(pady=20, padx=18, fill="x")
 
         # --- Tlačidlo Späť ---
         self.back_btn = ctk.CTkButton(
@@ -141,7 +151,7 @@ class AddEntityFrame(ctk.CTkFrame):
             self.on_save_callback(e_type, name, 0, icon)
 
 class TransactionWindow(ctk.CTkToplevel):
-    def __init__(self, parent, component, refresh_callback):
+    def __init__(self, parent, component, refresh_callback, bg1, bg2, font_color):
         super().__init__(parent)
         
         # 1. Window Setup
@@ -151,7 +161,7 @@ class TransactionWindow(ctk.CTkToplevel):
         self.attributes("-topmost", True) 
         
         # Window background matches the border color
-        self.configure(fg_color="#72bd39") 
+        self.configure(fg_color=font_color) 
         
         self.component = component
         self.refresh_callback = refresh_callback
@@ -161,15 +171,15 @@ class TransactionWindow(ctk.CTkToplevel):
             self, 
             corner_radius=0, 
             border_width=2, 
-            border_color="#345819", 
-            fg_color="#1f1f1f",
+            border_color=font_color, 
+            fg_color=bg2,
         )
         self.main_border_frame.pack(fill="both", expand=True)
 
         # 3. Tab View (Directly inside main frame)
-        self.tabs = ctk.CTkTabview(self.main_border_frame, 
+        self.tabs = ctk.CTkTabview(self.main_border_frame, fg_color=bg1,
                                    segmented_button_selected_color="#72bd39",
-                                   segmented_button_unselected_hover_color="#2d2d2d")
+                                   segmented_button_unselected_hover_color="#72bd39")
         self.tabs.pack(fill="both", expand=True, padx=10, pady=10)
         
         self.tab_income = self.tabs.add("Income")
