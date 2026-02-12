@@ -72,5 +72,49 @@
             }
         ],
         "target_amount": 6000.0
+    },
+    {
+        "type": "Savings",
+        "name": "Prste\u0148",
+        "image_name": "ring",
+        "current_amount": 185.0,
+        "transactions": [
+            {
+                "amount": 80.0,
+                "type": "Income",
+                "current_amount": 80.0,
+                "date": "2026-02-11T13:21:02.171309",
+                "note": "No note"
+            },
+            {
+                "amount": 30.0,
+                "type": "Income",
+                "current_amount": 110.0,
+                "date": "2026-02-11T13:21:08.778807",
+                "note": "No note"
+            },
+            {
+                "amount": 20.0,
+                "type": "Income",
+                "current_amount": 130.0,
+                "date": "2026-02-11T13:21:12.379298",
+                "note": "No note"
+            },
+            {
+                "amount": 35.0,
+                "type": "Income",
+                "current_amount": 165.0,
+                "date": "2026-02-11T13:21:18.060817",
+                "note": "No note"
+            },
+            {
+                "amount": 20.0,
+                "type": "Income",
+                "current_amount": 185.0,
+                "date": "2026-02-11T13:21:22.052785",
+                "note": "No note"
+            }
+        ],
+        "target_amount": 900.0
     }
 ]
