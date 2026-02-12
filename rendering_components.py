@@ -16,8 +16,8 @@ class Bar:
         self.icon_label = ctk.CTkLabel(self.title_bar, image=self.icon_photo, text="")
         self.icon_label.pack(side="left", padx=5)
 
-        title_label = ctk.CTkLabel(self.title_bar, text=title, text_color=actual_colors["font"], font=("Courier New", 16, "bold"))
-        title_label.pack(side="left")
+        self.title_label = ctk.CTkLabel(self.title_bar, text=title, text_color=actual_colors["font"], font=("Courier New", 16, "bold"))
+        self.title_label.pack(side="left")
 
         # Tlačidlá
         self.close_button = ctk.CTkButton(self.title_bar, text="✕", font=("Arial", 14, "bold"), width=30, command=save, fg_color=actual_colors["bg2"], hover_color=actual_colors["bg1"], text_color=actual_colors["font"])
@@ -34,8 +34,23 @@ class Bar:
         # Bindings
         self.title_bar.bind("<Button-1>", start_move)
         self.title_bar.bind("<B1-Motion>", do_move)
-        title_label.bind("<Button-1>", start_move)
-        title_label.bind("<B1-Motion>", do_move)
+        self.title_label.bind("<B1-Motion>", do_move)
+        self.title_label.bind("<Button-1>", start_move)
+
+    def refresh_colors(self, new_colors):
+        # 1. Update Title Bar Background
+        self.title_bar.configure(fg_color=new_colors["bg2"])
+        
+        # 2. Update Title Text
+        self.title_label.configure(text_color=new_colors["font"])
+        
+        # 3. Update Buttons
+        for btn in [self.close_button, self.max_button, self.min_button]:
+            btn.configure(
+                fg_color=new_colors["bg2"],
+                hover_color=new_colors["bg1"],
+                text_color=new_colors["font"]
+            )
 
 class ActionBar(ctk.CTkFrame):
     def __init__(self, parent, on_add_callback, on_color_select_callback, actual_colors):
@@ -62,9 +77,21 @@ class ActionBar(ctk.CTkFrame):
         )
         self.color_theme_button.pack(side="left", padx=10)
 
+    def refresh_colors(self, new_colors):
+        for btn in [self.add_button, self.color_theme_button]:
+            btn.configure(
+                fg_color=new_colors["bg1"],
+                text_color=new_colors["font"],
+                hover_color=new_colors["bg2"],
+                border_color=new_colors["bg2"]
+            )
+
 class ScrollableFrame(ctk.CTkScrollableFrame):
     def __init__(self, root, width, height, color):
         super().__init__(root, width=width, height=height, fg_color=color)
+    
+    def refresh_colors(self, new_bg_color):
+        self.configure(fg_color=new_bg_color)
 
 class AddEntityFrame(ctk.CTkFrame):
     def __init__(self, parent, on_save_callback, on_cancel_callback, actual_colors):
@@ -147,6 +174,157 @@ class AddEntityFrame(ctk.CTkFrame):
         else:
             self.on_save_callback(e_type, name, 0, icon)
         self.on_cancel_callback()
+    def refresh_colors(self, new_colors):
+        # 1. Update Back Button
+        self.back_btn.configure(
+            hover_color=new_colors["bg2"],
+            border_color=new_colors["bg2"],
+            text_color=new_colors["font"]
+        )
+
+        # 2. Update Toggle Switch (Segmented Button)
+        self.type_switch.configure(
+            fg_color=new_colors["bg1"],
+            unselected_color=new_colors["bg1"],
+            unselected_hover_color=new_colors["bg1"],
+            selected_color=new_colors["bg2"],
+            selected_hover_color=new_colors["bg2"],
+            text_color=new_colors["font"]
+        )
+
+        # 3. Update Save Button
+        self.save_btn.configure(
+            fg_color=new_colors["bg2"],
+            hover_color=new_colors["bg2"],
+            text_color=new_colors["font"]
+        )
+
+        # 4. Update Labels and Entries (iterating through container)
+        for widget in self.container.winfo_children():
+            if isinstance(widget, ctk.CTkLabel):
+                widget.configure(text_color=new_colors["font"])
+            elif isinstance(widget, ctk.CTkEntry):
+                widget.configure(fg_color=new_colors["bg1"], text_color=new_colors["font"])
+            # Handle the goal label explicitly if it's currently hidden/shown
+            if widget == self.goal_label:
+                widget.configure(text_color=new_colors["font"])
+
+# TODO
+class SelectTheme(ctk.CTkFrame):
+    def __init__(self, parent, on_cancel_callback, on_theme_select_callback, actual_colors, color_themes):
+        super().__init__(parent, fg_color="transparent")
+        
+        # --- 1. CONFIGURATION ---
+        self.circle_size = 50
+        self.circle_spacing = 15
+        
+        # Grid layout for the main container
+        self.grid_columnconfigure((0, 1, 2), weight=1)
+        self.grid_rowconfigure((1, 2, 3, 4), weight=1)
+
+        # --- Back button ---
+        self.back_btn = ctk.CTkButton(
+            self, text="◄ Back", height=30, width=30,
+            fg_color="transparent", hover_color=actual_colors["bg2"],
+            border_color=actual_colors["bg2"], border_width=2, 
+            font=("Courier New", 15, "normal"),
+            text_color=actual_colors["font"],
+            command=on_cancel_callback 
+        )
+        self.back_btn.grid(row=0, column=0, columnspan=3, sticky="w", padx=20, pady=(10, 20))
+
+        # --- Generate Cards ---
+        for i, theme in enumerate(color_themes):
+            row = (i // 3) + 1  
+            col = i % 3
+
+            # 2. THE CARD
+            theme_card = ctk.CTkFrame(self, fg_color=actual_colors["bg2"], corner_radius=10, cursor="hand2")
+            theme_card.grid(row=row, column=col, padx=10, pady=10, sticky="nsew")
+            
+            # --- CENTERING MAGIC ---
+            # We configure the card's grid to have 1 column and 3 rows.
+            # The top (0) and bottom (2) rows act as elastic spacers (weight=1).
+            # The middle row (1) holds our content.
+            theme_card.grid_columnconfigure(0, weight=1)
+            theme_card.grid_rowconfigure(0, weight=1) # Top spacer
+            theme_card.grid_rowconfigure(3, weight=1) # Bottom spacer
+
+            # 3. CONTENT CONTAINER (Holds Label + Canvas)
+            # We put a transparent frame in the center of the card
+            content_frame = ctk.CTkFrame(theme_card, fg_color="transparent")
+            content_frame.grid(row=1, column=0, sticky="ew") # Placed in the middle
+
+            # 4. CALCULATE & CREATE CANVAS
+            total_width = (3 * self.circle_size) + (2 * self.circle_spacing) + 2
+            total_height = self.circle_size + 2 
+
+            canvas = ctk.CTkCanvas(content_frame, width=total_width, height=total_height, 
+                                   bg=actual_colors["bg2"], highlightthickness=0, cursor="hand2")
+            canvas.pack() # Simply pack it into the centered content_frame
+
+            # Draw Circles
+            self.draw_theme_set(canvas, theme)
+
+            # --- BINDINGS ---
+            # Apply click event to card, canvas, label, and container
+            theme_card.bind("<Button-1>", lambda e, idx=i: on_theme_select_callback(idx))
+            content_frame.bind("<Button-1>", lambda e, idx=i: on_theme_select_callback(idx))
+            canvas.bind("<Button-1>", lambda e, idx=i: on_theme_select_callback(idx))
+            
+
+
+    def draw_theme_set(self, canvas, theme):
+        """Draws the 3 circles based on the configured size."""
+        y = 1 # Small offset for top outline
+        x = 1 # Start slightly offset so left outline isn't cut off
+        
+        # 1. Background Color
+        self.draw_single_circle(canvas, x, y, theme["bg1"])
+
+        # 2. Secondary Color
+        x += self.circle_size + self.circle_spacing
+        self.draw_single_circle(canvas, x, y, theme["bg2"])
+
+        # 3. Font Color
+        x += self.circle_size + self.circle_spacing
+        self.draw_single_circle(canvas, x, y, theme["font"])
+
+    def draw_single_circle(self, canvas, x, y, color):
+        canvas.create_oval(
+            x, y, 
+            x + self.circle_size, y + self.circle_size, 
+            fill=color, outline="white", width=1
+        )
+
+    def refresh_colors(self, new_colors):
+        # 1. Aktualizácia tlačidla Späť
+        self.back_btn.configure(
+            hover_color=new_colors["bg2"],
+            border_color=new_colors["bg2"],
+            text_color=new_colors["font"]
+        )
+
+        # 2. Prechádzanie cez deti (Karty tém)
+        for widget in self.winfo_children():
+            # Hľadáme CTkFrame, ktorý nie je back_btn (čiže sú to karty)
+            if isinstance(widget, ctk.CTkFrame) and widget != self.back_btn:
+                # Zmena farby karty
+                widget.configure(fg_color=new_colors["bg2"])
+                
+                # Karta obsahuje 'content_frame' (CTkFrame) alebo priamo widgety
+                # Musíme ísť hlbšie do štruktúry
+                for child in widget.winfo_children():
+                    
+                    # Ak je to content_frame (obal pre label a canvas)
+                    if isinstance(child, ctk.CTkFrame):
+                        # Prejdeme prvky vnútri content_frame
+                        for inner_child in child.winfo_children():
+                            if isinstance(inner_child, ctk.CTkLabel):
+                                inner_child.configure(text_color=new_colors["font"])
+                            elif isinstance(inner_child, ctk.CTkCanvas):
+                                inner_child.configure(bg=new_colors["bg2"])
+        
 
 class TransactionWindow(ctk.CTkToplevel):
     def __init__(self, parent, component, refresh_callback, actual_colors):
@@ -291,6 +469,29 @@ class TransactionWindow(ctk.CTkToplevel):
     def destroy_window(self):
         self.grab_release()
         self.destroy()
+
+    def refresh_colors(self, new_colors):
+        self.configure(fg_color=new_colors["font"]) # Border effect
+        self.main_border_frame.configure(border_color=new_colors["font"], fg_color=new_colors["bg2"])
+        self.form_frame.configure(fg_color=new_colors["bg1"])
+        self.button_border.configure(fg_color=new_colors["font"])
+        
+        # Switch
+        self.type_switch.configure(
+            fg_color=new_colors["bg1"],
+            selected_color=new_colors["bg2"],
+            selected_hover_color=new_colors["bg2"],
+            unselected_hover_color=new_colors["bg1"],
+            unselected_color=new_colors["bg1"],
+            text_color=new_colors["font"]
+        )
+
+        # Labels and Entries
+        for widget in self.form_frame.winfo_children():
+            if isinstance(widget, ctk.CTkLabel):
+                widget.configure(text_color=new_colors["font"])
+            elif isinstance(widget, ctk.CTkEntry):
+                widget.configure(fg_color=new_colors["bg1"], text_color=new_colors["font"])
 
 class FinancialGraph(ctk.CTkCanvas):
     def __init__(self, master, transactions, graph_type, actual_colors, line_color=None, **kwargs):

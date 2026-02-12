@@ -9,21 +9,38 @@ from rendering_components import *
 from data_manager import save_data, load_data
 import color_themes as ct # Use 'import' so we access the module's state
 
-actual_colors = {}
-
+actual_colors = ct.color_themes[1]
+active_select_theme_window = None 
 def change_theme(number_of_theme):
     global actual_colors
-    ct.set_color_index(number_of_theme)
-
     actual_colors = ct.color_themes[number_of_theme]
+    
+    # 1. Update Root
+    root.configure(fg_color=actual_colors["bg1"])
+    
+    # 2. Update statických prvkov
+    title_bar_comp.refresh_colors(actual_colors)
+    action_bar.refresh_colors(actual_colors)
+    scroll_frame.refresh_colors(actual_colors["bg1"])
+    
+    # 3. Update SelectTheme okna (ak existuje)
+    if active_select_theme_window is not None and active_select_theme_window.winfo_exists():
+        active_select_theme_window.refresh_colors(actual_colors)
 
-change_theme(8)
+    # 4. Update prvkov v scroll frame (ak by tam niečo ostalo, pre istotu)
+    for widget in scroll_frame.winfo_children():
+        if hasattr(widget, 'refresh_colors'):
+            widget.refresh_colors(actual_colors)
+    
+
+
 
 # --- Setup CTk ---
 ctk.set_appearance_mode("dark")
 root = ctk.CTk() 
 root.configure(fg_color=actual_colors["bg1"])
 root.geometry("1000x600")
+
 
 # --- Setting up grid (first column -> 0, this column will enlarge) ---
 root.columnconfigure(0, weight=1)
@@ -62,6 +79,14 @@ def maximize_restore_window():
         root.state("normal")
 
 
+def delete_financial_entity(component_to_delete):
+    if component_to_delete in financial_components:
+        financial_components.remove(component_to_delete)
+    scroll_frame._parent_canvas.yview_moveto(0)
+    save_data(financial_components)
+    refresh_list()
+
+
 # --- Inicial loading of data ---
 financial_components = load_data()
 
@@ -96,15 +121,24 @@ def add_financial_entity_view():
 
 # TODO: Make this create frame where you can choose color theme
 def select_color_theme_view():
-    pass
+    global active_select_theme_window # Použijeme globálnu premennú
+    
+    action_bar.grid_remove()
+    scroll_frame.grid_remove()
 
-# TODO: Delete financial entity
-def delete_financial_entity(component_to_delete):
-    if component_to_delete in financial_components:
-        financial_components.remove(component_to_delete)
-    scroll_frame._parent_canvas.yview_moveto(0)
-    save_data(financial_components)
-    refresh_list()
+    def handle_back():
+        global active_select_theme_window
+        if active_select_theme_window:
+            active_select_theme_window.destroy()
+            active_select_theme_window = None
+        refresh_list()
+
+    # Priradíme do globálnej premennej
+    active_select_theme_window = SelectTheme(root, handle_back, change_theme, actual_colors, ct.color_themes)
+    active_select_theme_window.grid(row=1, column=0, rowspan=2, sticky="nsew")
+    
+
+
 
 def refresh_list():
     
