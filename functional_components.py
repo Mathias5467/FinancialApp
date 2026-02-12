@@ -1,10 +1,22 @@
 from datetime import datetime
 from enum import Enum
 
+
 class TransactionType(Enum):
     INCOME = "Income"
     EXPENSE = "Expense"
 
+def resource_path(relative_path):
+    import os
+    import sys
+    # Get absolute path to resource, works for dev and for PyInstaller
+    try:
+        # PyInstaller creates a temp folder and stores path in _MEIPASS
+        base_path = sys._MEIPASS
+    except Exception:
+        base_path = os.path.abspath(".")
+
+    return os.path.join(base_path, relative_path)
 
 class Transaction:
     def __init__(self, amount: float, type: TransactionType, current_amount: float, date: datetime = None, note: str = "Add note"):

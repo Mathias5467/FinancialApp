@@ -2,13 +2,12 @@ import customtkinter as ctk
 from PIL import Image, ImageTk
 from functional_components import *
 
-
 class Bar:
     def __init__(self, root, actual_colors, maximize_window, minimize_window, start_move, do_move, save, title="Cash Flow", icon_path="icons/logo.png"):
         self.root = root
 
     
-        icon_img = Image.open(icon_path)
+        icon_img = Image.open(resource_path(icon_path))
         self.icon_photo = ctk.CTkImage(light_image=icon_img, dark_image=icon_img, size=(24, 24))
 
         self.title_bar = ctk.CTkFrame(root, height=50, fg_color=actual_colors["bg2"], corner_radius=0)
@@ -99,19 +98,19 @@ class AddEntityFrame(ctk.CTkFrame):
 
         # --- Názov ---
         ctk.CTkLabel(self.container, text="Name:", font=("Courier New", 14, "bold"), text_color=actual_colors["font"]).pack(anchor="w", pady=(10, 5))
-        self.name_entry = ctk.CTkEntry(self.container, placeholder_text="Holidays...", height=40)
+        self.name_entry = ctk.CTkEntry(self.container, placeholder_text="Holidays...", height=40, fg_color=actual_colors["bg1"], text_color=actual_colors["font"])
         self.name_entry.pack(fill="x", pady=(0, 10))
         self.name_entry.bind("<Button-1>", lambda e: self.name_entry.focus_set())
 
         # --- Ikona (Len názov bez .png) ---
         ctk.CTkLabel(self.container, text="Icon name:", font=("Courier New", 14, "bold"), text_color=actual_colors["font"]).pack(anchor="w", pady=(10, 5))
-        self.icon_entry = ctk.CTkEntry(self.container, placeholder_text="money", height=40)
+        self.icon_entry = ctk.CTkEntry(self.container, placeholder_text="money", height=40, fg_color=actual_colors["bg1"], text_color=actual_colors["font"])
         self.icon_entry.pack(fill="x", pady=(0, 10))
 
         # --- Cieľ (Goal) ---
         self.goal_label = ctk.CTkLabel(self.container, text="Target (€):", font=("Courier New", 14, "bold"), text_color=actual_colors["font"])
         self.goal_label.pack(anchor="w", pady=(10, 5))
-        self.goal_entry = ctk.CTkEntry(self.container, placeholder_text="5000", height=40)
+        self.goal_entry = ctk.CTkEntry(self.container, placeholder_text="5000", height=40, fg_color=actual_colors["bg1"], text_color=actual_colors["font"])
         self.goal_entry.pack(fill="x", pady=(0, 10))
 
         # --- Tlačidlo Uložiť ---
@@ -215,12 +214,12 @@ class TransactionWindow(ctk.CTkToplevel):
     def setup_form(self, container, actual_colors):
         # Amount
         ctk.CTkLabel(container, text="Amount:", font=("Courier New", 13, "bold"), text_color=actual_colors["font"]).pack(pady=(20, 0))
-        self.amt_entry = ctk.CTkEntry(container, placeholder_text="0.00€", width=220)
+        self.amt_entry = ctk.CTkEntry(container, placeholder_text="0.00€", width=220, fg_color=actual_colors["bg1"], text_color=actual_colors["font"])
         self.amt_entry.pack(pady=5)
 
         # Note
         ctk.CTkLabel(container, text="Note:", font=("Courier New", 13, "bold"), text_color=actual_colors["font"]).pack(pady=(10, 0))
-        self.note_entry = ctk.CTkEntry(container, placeholder_text="Description...", width=220)
+        self.note_entry = ctk.CTkEntry(container, placeholder_text="Description...", width=220, fg_color=actual_colors["bg1"], text_color=actual_colors["font"])
         self.note_entry.pack(pady=5)
 
         # --- Button Container ---
@@ -293,138 +292,246 @@ class TransactionWindow(ctk.CTkToplevel):
         self.grab_release()
         self.destroy()
 
-
 class AdaptableGraph(ctk.CTkCanvas):
-    def __init__(self, master, data, color, **kwargs):
-        kwargs.setdefault("height", 300)
-        kwargs.setdefault("bg", "#1a1a1a")
+    def __init__(self, master, transactions, color, actual_colors, **kwargs):
+        kwargs.setdefault("height", 250)
+        kwargs.setdefault("bg", actual_colors["bg1"])
         kwargs.setdefault("highlightthickness", 0)
         super().__init__(master, **kwargs)
-        self.data = data
+        
+        self.transactions = transactions # Now expects a list of Transaction objects
         self.color = color
+        self.actual_colors = actual_colors
+        self.points_map = [] # To store (x, y, transaction_object)
+
         self.bind("<Configure>", lambda e: self.draw())
+        self.bind("<Motion>", self.on_mouse_move)
+        self.bind("<Leave>", lambda e: self.hide_tooltip())
 
     def draw(self):
         self.delete("all")
+        self.points_map = []
+        
         width = self.winfo_width()
         height = self.winfo_height()
 
-        if width <= 1:
-            self.after(100, self.draw)
+        if width <= 1 or not self.transactions:
+            self.create_text(width/2, height/2, text="No data", fill="gray", font=("Courier New", 12))
             return
 
-        if not self.data:
-            self.create_text(width/2, height/2, text="Žiadne dáta", fill="gray", font=("Courier New", 12))
-            return
-
-        pad_l, pad_r, pad_t, pad_b = 60, 25, 25, 25
+        pad_l, pad_r, pad_t, pad_b = 60, 40, 40, 40
         
-        max_v = max(self.data)
-        min_v = min(self.data)
-        v_range = (max_v - min_v) if max_v != min_v else (max_v if max_v != 0 else 1)
+        # --- FIX: Create a virtual start point at 0 ---
+        # Create a dummy transaction object for the start
+        start_tx = Transaction(0, TransactionType.INCOME, 0, self.transactions[0].date, "Start")
+        display_data = [start_tx] + self.transactions 
 
-        # --- DYNAMICKÁ MRIEŽKA PODĽA POČTU PRVKOV ---
-        # Počet krokov (riadkov) je rovný počtu prvkov v zozname
-        steps = len(self.data)
-        # Divisor (deliteľ) musí byť aspoň 1, aby sme sa vyhli deleniu nulou
-        divisor = (steps - 1) if steps > 1 else 1
+        # --- FIX: Ensure 0 is the minimum for the scale ---
+        amounts = [t.amount for t in display_data]
+        max_v = max(amounts)
+        min_v = 0 # Force the bottom to be 0
+        v_range = max_v if max_v != 0 else 1
 
-        for i in range(steps):
-            # Výpočet Y pozície pre každý riadok mriežky
-            y = pad_t + (i * (height - pad_t - pad_b) / divisor)
-            
-            # Kreslenie mriežky
-            self.create_line(pad_l, y, width - pad_r, y, fill="#2d2d2d", dash=(2, 2))
-            
-            # Výpočet hodnoty pre popisok na Y osi
-            # (Rovnomerne rozložené hodnoty od Max po Min)
-            val = max_v - (i * v_range / divisor)
+        # Draw Grid
+        steps = 4
+        for i in range(steps + 1):
+            y = pad_t + (i * (height - pad_t - pad_b) / steps)
+            self.create_line(pad_l, y, width - pad_r, y, fill=self.actual_colors["bg2"], dash=(2, 2))
+            val = max_v - (i * v_range / steps)
             self.create_text(pad_l - 10, y, text=f"{val:.0f}€", 
-                             fill="gray", anchor="e", font=("Courier New", 10))
+                             fill="gray", anchor="e", font=("Courier New", 10, "bold"))
 
-        # --- KRESLENIE DÁT (Body a Čiara) ---
+        # Calculate Points
         points = []
-        for i, val in enumerate(self.data):
-            # X pozícia (rovnomerne rozdelená)
+        divisor = (len(display_data) - 1)
+        for i, tx in enumerate(display_data):
             x = pad_l + (i * (width - pad_l - pad_r) / divisor)
-            
-            # Y pozícia (normalizovaná hodnota)
-            norm = (val - min_v) / v_range
+            norm = (tx.amount - min_v) / v_range
             y = (height - pad_b) - (norm * (height - pad_t - pad_b))
-            points.append((x, y))
+            points.append((x, y, tx))
 
-        # Kreslenie čiary (priama spojnica bez smooth)
-        if len(points) > 1:
-            self.create_line(points, fill=self.color, width=3)
-        
-        # Kreslenie bodov
-        for x, y in points:
-            self.create_oval(x-4, y-4, x+4, y+4, fill=self.color, outline="#1a1a1a", width=1)
-
-class CombinedGraph(ctk.CTkCanvas):
-    def __init__(self, master, transactions, **kwargs):
-        kwargs.setdefault("height", 400)
-        kwargs.setdefault("bg", "#1a1a1a")
-        kwargs.setdefault("highlightthickness", 0)
-        super().__init__(master, **kwargs)
-        self.transactions = transactions
-        self.bind("<Configure>", lambda e: self.draw())
-
-    def draw(self):
-        self.delete("all")
-        width = self.winfo_width()
-        height = self.winfo_height()
-
-        if width <= 1:
-            self.after(100, self.draw)
-            return
-
-        if not self.transactions:
-            self.create_text(width/2, height/2, text="Žiadne transakcie", fill="gray")
-            return
-
-        pad_l, pad_r, pad_t, pad_b = 60, 25, 25, 25
-        amounts = [t.current_amount for t in self.transactions]
-        max_v, min_v = max(amounts), min(amounts)
-        v_range = (max_v - min_v) if max_v != min_v else (max_v if max_v != 0 else 1)
-
-        # Mriežka
-        for i in range(5):
-            y = pad_t + (i * (height - pad_t - pad_b) / 4)
-            self.create_line(pad_l, y, width - pad_r, y, fill="#2d2d2d", dash=(2, 2))
-            val = max_v - (i * v_range / 4)
-            self.create_text(pad_l - 10, y, text=f"{val:.0f}€", fill="gray", anchor="e", font=("Courier New", 10))
-
-        # Body
-        points = []
-        for i, tx in enumerate(self.transactions):
-            x = pad_l + (i * (width - pad_l - pad_r) / (max(1, len(self.transactions)-1)))
-            norm = (tx.current_amount - min_v) / v_range
-            y = (height - pad_b) - (norm * (height - pad_t - pad_b))
-            points.append((x, y, tx.type))
-
+        # Draw Line
         if len(points) > 1:
             coords = [(p[0], p[1]) for p in points]
-            self.create_line(coords, fill="#3d3d3d", width=1, dash=(4, 4))
+            self.create_line(coords, fill=self.color, width=3)
+        
+        # Draw Points (Skip drawing the dummy point 0 if you want it to look cleaner)
+        for i, (x, y, tx) in enumerate(points):
+            if i == 0: continue # Don't draw a circle for the "fake" 0 point
+            self.create_oval(x-4, y-4, x+4, y+4, fill=self.color, outline="white", width=1)
+            self.points_map.append((x, y, tx))
 
-        for x, y, t_type in points:
-            color = "#72bd39" if t_type == TransactionType.INCOME else "#ff5555"
-            self.create_oval(x-4, y-4, x+4, y+4, fill=color, outline="white")
-        # Prechádzame body od druhého (index 1) a spájame ho s predchádzajúcim
+    def on_mouse_move(self, event):
+        mouse_x, mouse_y = event.x, event.y
+        closest_point = None
+        min_dist = 15
+
+        for px, py, tx in self.points_map:
+            dist = ((mouse_x - px)**2 + (mouse_y - py)**2)**0.5
+            if dist < min_dist:
+                closest_point = (px, py, tx)
+                break
+        
+        if closest_point:
+            self.show_tooltip(*closest_point)
+        else:
+            self.hide_tooltip()
+
+    def show_tooltip(self, x, y, tx):
+        self.hide_tooltip()
+        
+        date_str = tx.date.strftime('%d.%m.%Y')
+        amt_str = f"{tx.amount:.2f}€"
+        note_str = (tx.note[:15] + '..') if len(tx.note) > 15 else tx.note
+        full_text = f"{date_str}\n{amt_str}\n"
+
+        tw, th = 110, 55
+        cw, ch = self.winfo_width(), self.winfo_height()
+
+        # Flip logic so it doesn't get cut off
+        rx = x - tw - 15 if x + tw + 20 > cw else x + 15
+        ry = y + 15 if y - th - 10 < 0 else y - th - 10
+
+        self.create_rectangle(rx, ry, rx + tw, ry + th, 
+                              fill=self.actual_colors["bg2"], outline=self.actual_colors["font"], 
+                              tags="tooltip", width=1)
+        
+        self.create_text(rx + 8, ry + 8, text=full_text, fill=self.actual_colors["font"], 
+                         font=("Courier New", 10, "bold"), anchor="nw", tags="tooltip")
+
+    def hide_tooltip(self):
+        self.delete("tooltip")
+class CombinedGraph(ctk.CTkCanvas):
+    def __init__(self, master, transactions, actual_colors, **kwargs):
+        kwargs.setdefault("height", 400)
+        kwargs.setdefault("bg", actual_colors["bg1"]) # Match theme background
+        kwargs.setdefault("highlightthickness", 0)
+        super().__init__(master, **kwargs)
+        
+        self.transactions = transactions
+        self.actual_colors = actual_colors
+        self.points_map = [] # To store (x, y, transaction_object)
+        
+        # Bind events for interactivity
+        self.bind("<Configure>", lambda e: self.draw(actual_colors))
+        self.bind("<Motion>", self.on_mouse_move)
+        self.bind("<Leave>", lambda e: self.hide_tooltip())
+
+    def draw(self, actual_colors):
+        self.delete("all")
+        self.points_map = []
+        
+        width = self.winfo_width()
+        height = self.winfo_height()
+
+        if width <= 1 or not self.transactions:
+            self.create_text(width/2, height/2, text="No transactions", fill="gray")
+            return
+
+        pad_l, pad_r, pad_t, pad_b = 60, 40, 40, 40
+        
+        # --- FIX: Prepend a 0 balance start point ---
+        start_tx = Transaction(0, TransactionType.INCOME, 0, self.transactions[0].date, "Opening")
+        display_data = [start_tx] + self.transactions
+
+        # --- FIX: Scale includes 0 ---
+        amounts = [t.current_amount for t in display_data]
+        max_v = max(amounts)
+        min_v = min(0, min(amounts)) # Handle negative balance if it exists
+        v_range = (max_v - min_v) if max_v != min_v else 1
+
+        # Draw Grid Lines
+        for i in range(5):
+            y = pad_t + (i * (height - pad_t - pad_b) / 4)
+            self.create_line(pad_l, y, width - pad_r, y, fill=actual_colors["bg2"], dash=(2, 2))
+            val = max_v - (i * v_range / 4)
+            self.create_text(pad_l - 10, y, text=f"{val:.0f}€", fill=actual_colors["bg2"], anchor="e", font=("Courier New", 11, "bold"))
+
+        # Calculate Points
+        points = []
+        divisor = (len(display_data) - 1)
+        for i, tx in enumerate(display_data):
+            x = pad_l + (i * (width - pad_l - pad_r) / divisor)
+            norm = (tx.current_amount - min_v) / v_range
+            y = (height - pad_b) - (norm * (height - pad_t - pad_b))
+            points.append((x, y, tx))
+
+        # Draw connecting lines
         if len(points) > 1:
             for i in range(1, len(points)):
-                prev_x, prev_y, _ = points[i-1]
-                curr_x, curr_y, curr_type = points[i]
-                
-                # Farba čiary podľa typu transakcie, ktorá tento bod vytvorila
-                line_color = "#72bd39" if curr_type == TransactionType.INCOME else "#ff5555"
-                
-                # Nakreslíme spojnicu medzi bodmi
-                self.create_line(prev_x, prev_y, curr_x, curr_y, 
-                                 fill=line_color, width=3) # Width 3 pre lepšiu viditeľnosť
+                p1, p2 = points[i-1], points[i]
+                # If it's the first segment (from 0), use neutral gray or font color
+                line_color = (self.actual_colors["green"] if p2[2].type == TransactionType.INCOME else self.actual_colors["red"])
+                self.create_line(p1[0], p1[1], p2[0], p2[1], fill=line_color, width=3)
 
-        # 4. Kreslenie bodov navrch (aby prekrývali čiary)
-        for x, y, t_type in points:
-            color = "#72bd39" if t_type == TransactionType.INCOME else "#ff5555"
-            # Väčší bod s bielym obrysom
-            self.create_oval(x-5, y-5, x+5, y+5, fill=color, outline="white", width=1)
+        # Draw Points (Skip the virtual 0 point)
+        for i, (x, y, tx) in enumerate(points):
+            if i == 0: continue 
+            color = self.actual_colors["green"] if tx.type == TransactionType.INCOME else self.actual_colors["red"]
+            self.create_oval(x-5, y-5, x+5, y+5, fill=color, outline="white", width=1, tags="points")
+            self.points_map.append((x, y, tx))
+
+    def on_mouse_move(self, event):
+        """Detects if the mouse is near a point and shows tooltip."""
+        mouse_x, mouse_y = event.x, event.y
+        closest_point = None
+        min_dist = 15 # Sensitivity radius in pixels
+
+        for px, py, tx in self.points_map:
+            # Simple Pythagorean distance
+            dist = ((mouse_x - px)**2 + (mouse_y - py)**2)**0.5
+            if dist < min_dist:
+                closest_point = (px, py, tx)
+                break
+        
+        if closest_point:
+            self.show_tooltip(*closest_point)
+        else:
+            self.hide_tooltip()
+
+    def show_tooltip(self, x, y, tx):
+        self.hide_tooltip()
+        
+        # 1. Tooltip Content
+        date_str = tx.date.strftime('%d.%m.%Y')
+        amt_str = f"{'+' if tx.type == TransactionType.INCOME else '-'}{tx.amount:.2f}€"
+        bal_str = f"Bal: {tx.current_amount:.0f}€"
+        full_text = f"{date_str}\n{amt_str}\n{bal_str}"
+
+        # 2. Tooltip Dimensions
+        tw, th = 110, 60
+        
+        # 3. Dynamic Positioning (Bounds Checking)
+        canvas_w = self.winfo_width()
+        canvas_h = self.winfo_height()
+
+        # Horizontal positioning: Flip to left if near right edge
+        if x + tw + 20 > canvas_w:
+            rect_x1 = x - tw - 15
+        else:
+            rect_x1 = x + 15
+        
+        # Vertical positioning: Flip to bottom if near top edge
+        if y - th - 10 < 0:
+            rect_y1 = y + 15
+        else:
+            rect_y1 = y - th - 10
+
+        rect_x2 = rect_x1 + tw
+        rect_y2 = rect_y1 + th
+
+        # 4. Draw Tooltip Background (Rectangle)
+        self.create_rectangle(rect_x1, rect_y1, rect_x2, rect_y2, 
+                              fill=self.actual_colors["bg2"], 
+                              outline=self.actual_colors["font"], 
+                              tags="tooltip", width=1)
+        
+        # 5. Draw Tooltip Text
+        # We anchor "nw" (North West) so text starts at the top-left of the rectangle
+        self.create_text(rect_x1 + 8, rect_y1 + 8, 
+                         text=full_text, fill=self.actual_colors["font"], 
+                         font=("Courier New", 10, "bold"), 
+                         anchor="nw", tags="tooltip")
+
+    def hide_tooltip(self):
+        self.delete("tooltip")

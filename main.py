@@ -2,6 +2,7 @@ import customtkinter as ctk
 from PIL import Image
 import ctypes
 import tkinter as tk
+import os
 
 from functional_components import *
 from rendering_components import *
@@ -16,7 +17,7 @@ def change_theme(number_of_theme):
 
     actual_colors = ct.color_themes[number_of_theme]
 
-change_theme(8)
+change_theme(1)
 
 # --- Setup CTk ---
 ctk.set_appearance_mode("dark")
@@ -28,8 +29,11 @@ root.geometry("1000x600")
 root.columnconfigure(0, weight=1)
 root.rowconfigure(2, weight=1)
 
+icon_path = resource_path("icons/logo.ico")
+if os.path.exists(icon_path):
+    root.iconbitmap(icon_path)
+
 # --- Window Decoration (Windows only) ---
-root.iconbitmap("icons/logo.ico")
 root.overrideredirect(True)
 hwnd = ctypes.windll.user32.GetParent(root.winfo_id())
 ctypes.windll.user32.SetWindowLongW(hwnd, -16, 0x10000000 | 0x40000000)
@@ -162,7 +166,8 @@ def show_details(component):
     if not component.transactions:
         ctk.CTkLabel(scroll_frame, text="No transactions yet.", text_color="gray").pack()
     else:
-        for tx in component.transactions:
+        
+        for tx in component.transactions[::-1]:
             color = actual_colors["green"] if tx.type == TransactionType.INCOME else actual_colors["red"]
             prefix = "+" if tx.type == TransactionType.INCOME else "-"
             
@@ -178,20 +183,21 @@ def show_details(component):
     graph_container = ctk.CTkFrame(scroll_frame, fg_color="transparent")
     graph_container.pack(fill="x", padx=30, pady=20)
 
-    income_data = [t.amount for t in component.transactions if t.type == TransactionType.INCOME]
-    income_data.insert(0, 0)
-    expense_data = [t.amount for t in component.transactions if t.type == TransactionType.EXPENSE]
-    expense_data.insert(0, 0)
-
-
+    # Filter full transaction objects instead of just amounts
+    income_transactions = [t for t in component.transactions if t.type == TransactionType.INCOME]
+    expense_transactions = [t for t in component.transactions if t.type == TransactionType.EXPENSE]
+    
+    # Príjmy Graph
     ctk.CTkLabel(graph_container, text="Príjmy", font=("Courier New", 18, "bold"), text_color=actual_colors["green"]).pack(anchor="w")
-    AdaptableGraph(graph_container, data=income_data, color=actual_colors["green"]).pack(fill="x", pady=(5, 25))
+    AdaptableGraph(graph_container, transactions=income_transactions, color=actual_colors["green"], actual_colors=actual_colors).pack(fill="x", pady=(5, 25))
 
+    # Výdavky Graph
     ctk.CTkLabel(graph_container, text="Výdavky", font=("Courier New", 18, "bold"), text_color=actual_colors["red"]).pack(anchor="w")
-    AdaptableGraph(graph_container, data=expense_data, color=actual_colors["red"]).pack(fill="x", pady=(5, 25))
+    AdaptableGraph(graph_container, transactions=expense_transactions, color=actual_colors["red"], actual_colors=actual_colors).pack(fill="x", pady=(5, 25))
 
+    # Celková História
     ctk.CTkLabel(graph_container, text="História transakcií", font=("Courier New", 18, "bold"), text_color=actual_colors["font"]).pack(anchor="w")
-    CombinedGraph(graph_container, transactions=component.transactions).pack(fill="x", pady=(5, 25))
+    CombinedGraph(graph_container, transactions=component.transactions, actual_colors=actual_colors).pack(fill="x", pady=(5, 25))
 
 # --- Main Components Creation ---
 
@@ -202,7 +208,7 @@ def save_exit():
 
 
 # Riadok 0: Title bar
-title_bar_comp = Bar(root,actual_colors, maximize_restore_window, minimize_window, start_move, do_move, save_exit, "Cash Flow", "icons/logo.png")
+title_bar_comp = Bar(root,actual_colors, maximize_restore_window, minimize_window, start_move, do_move, save_exit, "Cash Flow", resource_path("icons/logo.png"))
 # Poznámka: Predpokladám, že Bar trieda vo vnútri používa .grid(row=0) alebo ju tam umiestniš manuálne.
 
 # Riadok 1: Action bar
