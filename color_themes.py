@@ -22,3 +22,5 @@ def set_color_index(new_index):
     global color_index
     if (new_index >= 0 and new_index < len(color_themes)):
         color_index = new_index
+    else:
+        color_index = 0

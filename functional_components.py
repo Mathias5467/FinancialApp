@@ -6,6 +6,11 @@ class TransactionType(Enum):
     INCOME = "Income"
     EXPENSE = "Expense"
 
+class GraphType(Enum):
+    SINGLE = "Single"
+    COMBINED = "Combined"
+    
+
 def resource_path(relative_path):
     import os
     import sys

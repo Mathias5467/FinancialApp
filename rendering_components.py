@@ -292,18 +292,20 @@ class TransactionWindow(ctk.CTkToplevel):
         self.grab_release()
         self.destroy()
 
-class AdaptableGraph(ctk.CTkCanvas):
-    def __init__(self, master, transactions, color, actual_colors, **kwargs):
-        kwargs.setdefault("height", 250)
+class FinancialGraph(ctk.CTkCanvas):
+    def __init__(self, master, transactions, graph_type, actual_colors, line_color=None, **kwargs):
+        kwargs.setdefault("height", 300)
         kwargs.setdefault("bg", actual_colors["bg1"])
         kwargs.setdefault("highlightthickness", 0)
         super().__init__(master, **kwargs)
         
-        self.transactions = transactions # Now expects a list of Transaction objects
-        self.color = color
+        self.transactions = transactions
+        self.graph_type = graph_type
         self.actual_colors = actual_colors
-        self.points_map = [] # To store (x, y, transaction_object)
-
+        self.line_color = line_color or actual_colors["font"] # Default color for SINGLE type
+        
+        self.points_map = [] # Stores (x, y, transaction_object)
+        
         self.bind("<Configure>", lambda e: self.draw())
         self.bind("<Motion>", self.on_mouse_move)
         self.bind("<Leave>", lambda e: self.hide_tooltip())
@@ -316,49 +318,70 @@ class AdaptableGraph(ctk.CTkCanvas):
         height = self.winfo_height()
 
         if width <= 1 or not self.transactions:
-            self.create_text(width/2, height/2, text="No data", fill="gray", font=("Courier New", 12))
+            self.create_text(width/2, height/2, text="No data available", 
+                             fill="gray", font=("Courier New", 12))
             return
 
         pad_l, pad_r, pad_t, pad_b = 60, 40, 40, 40
         
-        # --- FIX: Create a virtual start point at 0 ---
-        # Create a dummy transaction object for the start
+        # 1. Prepare Data based on Graph Type
+        # We prepend a 0-point to start from the baseline
         start_tx = Transaction(0, TransactionType.INCOME, 0, self.transactions[0].date, "Start")
         display_data = [start_tx] + self.transactions 
 
-        # --- FIX: Ensure 0 is the minimum for the scale ---
-        amounts = [t.amount for t in display_data]
-        max_v = max(amounts)
-        min_v = 0 # Force the bottom to be 0
-        v_range = max_v if max_v != 0 else 1
+        if self.graph_type == GraphType.SINGLE:
+            values = [t.amount for t in display_data]
+        else: # HISTORY
+            values = [t.current_amount for t in display_data]
 
-        # Draw Grid
+        max_v = max(values)
+        min_v = min(0, min(values)) # Ensure 0 is visible
+        v_range = (max_v - min_v) if max_v != min_v else 1
+
+        # 2. Draw Grid
         steps = 4
         for i in range(steps + 1):
             y = pad_t + (i * (height - pad_t - pad_b) / steps)
-            self.create_line(pad_l, y, width - pad_r, y, fill=self.actual_colors["bg2"], dash=(2, 2))
+            self.create_line(pad_l, y, width - pad_r, y, fill=self.actual_colors["font"], dash=(2, 2), stipple="gray50")
             val = max_v - (i * v_range / steps)
             self.create_text(pad_l - 10, y, text=f"{val:.0f}€", 
-                             fill="gray", anchor="e", font=("Courier New", 10, "bold"))
+                             fill=self.actual_colors["font"], anchor="e", font=("Courier New", 10, "bold"))
 
-        # Calculate Points
+        # 3. Calculate Points
         points = []
-        divisor = (len(display_data) - 1)
+        divisor = len(display_data) - 1
         for i, tx in enumerate(display_data):
             x = pad_l + (i * (width - pad_l - pad_r) / divisor)
-            norm = (tx.amount - min_v) / v_range
+            current_val = tx.amount if self.graph_type == GraphType.SINGLE else tx.current_amount
+            norm = (current_val - min_v) / v_range
             y = (height - pad_b) - (norm * (height - pad_t - pad_b))
             points.append((x, y, tx))
 
-        # Draw Line
+        # 4. Draw Lines
         if len(points) > 1:
-            coords = [(p[0], p[1]) for p in points]
-            self.create_line(coords, fill=self.color, width=3)
-        
-        # Draw Points (Skip drawing the dummy point 0 if you want it to look cleaner)
+            for i in range(1, len(points)):
+                p1, p2 = points[i-1], points[i]
+                
+                # Determine color logic
+                if self.graph_type == GraphType.SINGLE:
+                    color = self.line_color
+                else:
+                    # History lines match the transaction type that caused the change
+                    color = self.actual_colors["green"] if p2[2].type == TransactionType.INCOME else self.actual_colors["red"]
+                
+                self.create_line(p1[0], p1[1], p2[0], p2[1], fill=color, width=3)
+
+        # 5. Draw Points (Skip the "virtual 0" point for cleaner look)
         for i, (x, y, tx) in enumerate(points):
-            if i == 0: continue # Don't draw a circle for the "fake" 0 point
-            self.create_oval(x-4, y-4, x+4, y+4, fill=self.color, outline="white", width=1)
+            if i == 0: continue 
+            
+            # Point color logic
+            if self.graph_type == GraphType.SINGLE:
+                p_color = self.line_color
+            else:
+                p_color = self.actual_colors["green"] if tx.type == TransactionType.INCOME else self.actual_colors["red"]
+                
+            self.create_oval(x-4, y-4, x+4, y+4, fill=p_color, outline="white", width=1)
             self.points_map.append((x, y, tx))
 
     def on_mouse_move(self, event):
@@ -381,14 +404,21 @@ class AdaptableGraph(ctk.CTkCanvas):
         self.hide_tooltip()
         
         date_str = tx.date.strftime('%d.%m.%Y')
-        amt_str = f"{tx.amount:.2f}€"
-        note_str = (tx.note[:15] + '..') if len(tx.note) > 15 else tx.note
-        full_text = f"{date_str}\n{amt_str}\n"
+        prefix = "+" if tx.type == TransactionType.INCOME else "-"
+        amt_str = f"{prefix}{tx.amount:.2f}€"
+        
+        # Dynamic tooltip content based on Enum
+        if self.graph_type == GraphType.COMBINED:
+            full_text = f"{date_str}\n{amt_str}\nBal: {tx.current_amount:.0f}€"
+            th = 60
+        else:
+            full_text = f"{date_str}\n{amt_str}"
+            th = 45
 
-        tw, th = 110, 55
+        tw = 110
         cw, ch = self.winfo_width(), self.winfo_height()
 
-        # Flip logic so it doesn't get cut off
+        # Bounds checking
         rx = x - tw - 15 if x + tw + 20 > cw else x + 15
         ry = y + 15 if y - th - 10 < 0 else y - th - 10
 
@@ -398,140 +428,6 @@ class AdaptableGraph(ctk.CTkCanvas):
         
         self.create_text(rx + 8, ry + 8, text=full_text, fill=self.actual_colors["font"], 
                          font=("Courier New", 10, "bold"), anchor="nw", tags="tooltip")
-
-    def hide_tooltip(self):
-        self.delete("tooltip")
-class CombinedGraph(ctk.CTkCanvas):
-    def __init__(self, master, transactions, actual_colors, **kwargs):
-        kwargs.setdefault("height", 400)
-        kwargs.setdefault("bg", actual_colors["bg1"]) # Match theme background
-        kwargs.setdefault("highlightthickness", 0)
-        super().__init__(master, **kwargs)
-        
-        self.transactions = transactions
-        self.actual_colors = actual_colors
-        self.points_map = [] # To store (x, y, transaction_object)
-        
-        # Bind events for interactivity
-        self.bind("<Configure>", lambda e: self.draw(actual_colors))
-        self.bind("<Motion>", self.on_mouse_move)
-        self.bind("<Leave>", lambda e: self.hide_tooltip())
-
-    def draw(self, actual_colors):
-        self.delete("all")
-        self.points_map = []
-        
-        width = self.winfo_width()
-        height = self.winfo_height()
-
-        if width <= 1 or not self.transactions:
-            self.create_text(width/2, height/2, text="No transactions", fill="gray")
-            return
-
-        pad_l, pad_r, pad_t, pad_b = 60, 40, 40, 40
-        
-        # --- FIX: Prepend a 0 balance start point ---
-        start_tx = Transaction(0, TransactionType.INCOME, 0, self.transactions[0].date, "Opening")
-        display_data = [start_tx] + self.transactions
-
-        # --- FIX: Scale includes 0 ---
-        amounts = [t.current_amount for t in display_data]
-        max_v = max(amounts)
-        min_v = min(0, min(amounts)) # Handle negative balance if it exists
-        v_range = (max_v - min_v) if max_v != min_v else 1
-
-        # Draw Grid Lines
-        for i in range(5):
-            y = pad_t + (i * (height - pad_t - pad_b) / 4)
-            self.create_line(pad_l, y, width - pad_r, y, fill=actual_colors["bg2"], dash=(2, 2))
-            val = max_v - (i * v_range / 4)
-            self.create_text(pad_l - 10, y, text=f"{val:.0f}€", fill=actual_colors["bg2"], anchor="e", font=("Courier New", 11, "bold"))
-
-        # Calculate Points
-        points = []
-        divisor = (len(display_data) - 1)
-        for i, tx in enumerate(display_data):
-            x = pad_l + (i * (width - pad_l - pad_r) / divisor)
-            norm = (tx.current_amount - min_v) / v_range
-            y = (height - pad_b) - (norm * (height - pad_t - pad_b))
-            points.append((x, y, tx))
-
-        # Draw connecting lines
-        if len(points) > 1:
-            for i in range(1, len(points)):
-                p1, p2 = points[i-1], points[i]
-                # If it's the first segment (from 0), use neutral gray or font color
-                line_color = (self.actual_colors["green"] if p2[2].type == TransactionType.INCOME else self.actual_colors["red"])
-                self.create_line(p1[0], p1[1], p2[0], p2[1], fill=line_color, width=3)
-
-        # Draw Points (Skip the virtual 0 point)
-        for i, (x, y, tx) in enumerate(points):
-            if i == 0: continue 
-            color = self.actual_colors["green"] if tx.type == TransactionType.INCOME else self.actual_colors["red"]
-            self.create_oval(x-5, y-5, x+5, y+5, fill=color, outline="white", width=1, tags="points")
-            self.points_map.append((x, y, tx))
-
-    def on_mouse_move(self, event):
-        """Detects if the mouse is near a point and shows tooltip."""
-        mouse_x, mouse_y = event.x, event.y
-        closest_point = None
-        min_dist = 15 # Sensitivity radius in pixels
-
-        for px, py, tx in self.points_map:
-            # Simple Pythagorean distance
-            dist = ((mouse_x - px)**2 + (mouse_y - py)**2)**0.5
-            if dist < min_dist:
-                closest_point = (px, py, tx)
-                break
-        
-        if closest_point:
-            self.show_tooltip(*closest_point)
-        else:
-            self.hide_tooltip()
-
-    def show_tooltip(self, x, y, tx):
-        self.hide_tooltip()
-        
-        # 1. Tooltip Content
-        date_str = tx.date.strftime('%d.%m.%Y')
-        amt_str = f"{'+' if tx.type == TransactionType.INCOME else '-'}{tx.amount:.2f}€"
-        bal_str = f"Bal: {tx.current_amount:.0f}€"
-        full_text = f"{date_str}\n{amt_str}\n{bal_str}"
-
-        # 2. Tooltip Dimensions
-        tw, th = 110, 60
-        
-        # 3. Dynamic Positioning (Bounds Checking)
-        canvas_w = self.winfo_width()
-        canvas_h = self.winfo_height()
-
-        # Horizontal positioning: Flip to left if near right edge
-        if x + tw + 20 > canvas_w:
-            rect_x1 = x - tw - 15
-        else:
-            rect_x1 = x + 15
-        
-        # Vertical positioning: Flip to bottom if near top edge
-        if y - th - 10 < 0:
-            rect_y1 = y + 15
-        else:
-            rect_y1 = y - th - 10
-
-        rect_x2 = rect_x1 + tw
-        rect_y2 = rect_y1 + th
-
-        # 4. Draw Tooltip Background (Rectangle)
-        self.create_rectangle(rect_x1, rect_y1, rect_x2, rect_y2, 
-                              fill=self.actual_colors["bg2"], 
-                              outline=self.actual_colors["font"], 
-                              tags="tooltip", width=1)
-        
-        # 5. Draw Tooltip Text
-        # We anchor "nw" (North West) so text starts at the top-left of the rectangle
-        self.create_text(rect_x1 + 8, rect_y1 + 8, 
-                         text=full_text, fill=self.actual_colors["font"], 
-                         font=("Courier New", 10, "bold"), 
-                         anchor="nw", tags="tooltip")
 
     def hide_tooltip(self):
         self.delete("tooltip")

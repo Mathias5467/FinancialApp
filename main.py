@@ -17,7 +17,7 @@ def change_theme(number_of_theme):
 
     actual_colors = ct.color_themes[number_of_theme]
 
-change_theme(1)
+change_theme(8)
 
 # --- Setup CTk ---
 ctk.set_appearance_mode("dark")
@@ -98,6 +98,13 @@ def add_financial_entity_view():
 def select_color_theme_view():
     pass
 
+# TODO: Delete financial entity
+def delete_financial_entity(component_to_delete):
+    if component_to_delete in financial_components:
+        financial_components.remove(component_to_delete)
+    scroll_frame._parent_canvas.yview_moveto(0)
+    save_data(financial_components)
+    refresh_list()
 
 def refresh_list():
     
@@ -187,18 +194,40 @@ def show_details(component):
     income_transactions = [t for t in component.transactions if t.type == TransactionType.INCOME]
     expense_transactions = [t for t in component.transactions if t.type == TransactionType.EXPENSE]
     
-    # Príjmy Graph
+    # Income graph
     ctk.CTkLabel(graph_container, text="Príjmy", font=("Courier New", 18, "bold"), text_color=actual_colors["green"]).pack(anchor="w")
-    AdaptableGraph(graph_container, transactions=income_transactions, color=actual_colors["green"], actual_colors=actual_colors).pack(fill="x", pady=(5, 25))
+    FinancialGraph(
+        graph_container, 
+        transactions=[t for t in component.transactions if t.type == TransactionType.INCOME],
+        graph_type=GraphType.SINGLE,
+        actual_colors=actual_colors,
+        line_color=actual_colors["green"]
+    ).pack(fill="x", pady=(5, 25))
 
-    # Výdavky Graph
+    # Expense graph
     ctk.CTkLabel(graph_container, text="Výdavky", font=("Courier New", 18, "bold"), text_color=actual_colors["red"]).pack(anchor="w")
-    AdaptableGraph(graph_container, transactions=expense_transactions, color=actual_colors["red"], actual_colors=actual_colors).pack(fill="x", pady=(5, 25))
+    FinancialGraph(
+        graph_container, 
+        transactions=[t for t in component.transactions if t.type == TransactionType.EXPENSE],
+        graph_type=GraphType.SINGLE,
+        actual_colors=actual_colors,
+        line_color=actual_colors["red"]
+    ).pack(fill="x", pady=(5, 25))
 
-    # Celková História
+    # All transactions graph
     ctk.CTkLabel(graph_container, text="História transakcií", font=("Courier New", 18, "bold"), text_color=actual_colors["font"]).pack(anchor="w")
-    CombinedGraph(graph_container, transactions=component.transactions, actual_colors=actual_colors).pack(fill="x", pady=(5, 25))
+    FinancialGraph(
+        graph_container, 
+        transactions=component.transactions,
+        graph_type=GraphType.COMBINED,
+        actual_colors=actual_colors
+    ).pack(fill="x", pady=(5, 25))
+    # Delete button
 
+    delete_btn = ctk.CTkButton(scroll_frame, width=50, height=30, corner_radius=8, text="Delete", border_color=actual_colors["red"],
+                               fg_color=actual_colors["bg1"], text_color=actual_colors["font"], hover_color=actual_colors["red"], border_width=2,
+                                font=("Courier New", 18, "bold"), command=lambda: delete_financial_entity(component))
+    delete_btn.pack(pady=(0, 40))
 # --- Main Components Creation ---
 
 # --- Save data and exit ---
