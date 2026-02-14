@@ -14,6 +14,7 @@ Your workspace should feel like yours. My financial tracking app supports global
 | **Left Click** | Full Report | Details about financial entity. |
 | **Select Theme** | Color Picker | Update the color across the app. |
 
+## 📷 Photos of the app
 <p align="center">
   <img src="images/menu.png" width="49%" />
   <img src="images/new_transaction.png" width="49%" />
